@@ -1,26 +1,14 @@
-
 import React from 'react';
 import Dashboard from './components/Dashboard';
 import { CrownIcon } from './components/icons/CrownIcon';
 
+// API 키가 없어도 모의 데이터로 게임이 작동하도록 환경 변수 설정
+if (!process.env.API_KEY) {
+  process.env.API_KEY = 'MOCK_DATA_MODE';
+}
+
 const App: React.FC = () => {
-  // This check is a placeholder. In a real environment, process.env.API_KEY would be set.
-  // For this exercise, we'll assume it's available and proceed.
-  // if (!process.env.API_KEY) {
-  //   return (
-  //     <div className="min-h-screen bg-red-100 flex flex-col items-center justify-center p-4">
-  //       <div className="bg-white p-8 rounded-lg shadow-xl text-center">
-  //         <h1 className="text-2xl font-bold text-red-700 mb-4">API Key Missing</h1>
-  //         <p className="text-gray-700">
-  //           The Gemini API key is not configured. Please set the <code className="bg-red-200 px-1 rounded">process.env.API_KEY</code> environment variable.
-  //         </p>
-  //         <p className="mt-2 text-sm text-gray-500">
-  //           (For this demonstration, functionality will be limited if the key is truly absent, but the UI will proceed assuming it's available in a deployed environment.)
-  //         </p>
-  //       </div>
-  //     </div>
-  //   );
-  // }
+  // 이전에 API 키 체크 부분이 있었으나 모의 데이터로 대체되어 삭제됨
 
   return (
     <div className="min-h-screen bg-parchment-dark p-4 md:p-8 flex flex-col items-center">

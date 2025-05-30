@@ -167,7 +167,7 @@ const Dashboard: React.FC = () => {
   const [edelweissGoal, setEdelweissGoal] = useState<EdelweissGoal>(DEFAULT_EDELWEISS_GOAL);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [historicalData, setHistoricalData] = useState<HistoricalDataPoint[]>([]);
-  const [apiKey] = useState(process.env.API_KEY || "MISSING_API_KEY");
+  const [apiKey] = useState(process.env.API_KEY || "MOCK_DATA_MODE");
   const [gameInitialized, setGameInitialized] = useState(false);
   const [isDelegating, setIsDelegating] = useState<boolean>(false);
   const [isGameOver, setIsGameOver] = useState<boolean>(false);
@@ -228,13 +228,6 @@ const Dashboard: React.FC = () => {
   }, [kingdomStats.currentDay, applyStatChanges, updateGameLog, isGameOver]);
 
   const loadInitialReport = useCallback(async () => {
-    if (apiKey === "MISSING_API_KEY") {
-        updateGameLog("API 키가 없습니다. AI 기능을 사용할 수 없습니다.");
-        // Still allow game to be playable with mock data if API key is missing after initial setup
-        // So, don't return here if game is already initialized.
-        // This check is more for the very first load.
-        if (!gameInitialized) return; 
-    }
     setIsLoading(true);
     try {
       // Pass initial stats to ensure the report reflects the actual starting state.
@@ -420,11 +413,6 @@ const Dashboard: React.FC = () => {
 
   const handleAdvanceDay = useCallback(async () => {
     if (isLoading || activeEvent || isGameOver) return; 
-    if (apiKey === "MISSING_API_KEY") {
-        updateGameLog("다음 날로 진행할 수 없습니다: API 키가 없습니다.");
-        if(isDelegating) setIsDelegating(false);
-        return;
-    }
 
     saveGameStateToLocalStorage(); 
 
@@ -482,12 +470,6 @@ const Dashboard: React.FC = () => {
 
   const handleResolveEvent = useCallback(async (choice: PlayerChoice) => {
     if (!activeEvent || isGameOver) return;
-     if (apiKey === "MISSING_API_KEY") {
-        updateGameLog(`이벤트 ${activeEvent.title} 해결 불가: API 키가 없습니다.`);
-        setActiveEvent(null);
-        if(isDelegating) setIsDelegating(false);
-        return;
-    }
 
     setIsLoading(true);
     updateGameLog(`이벤트 "${activeEvent.title}"에 대해 "${choice.text}" 결정을 내리는 중...`);
@@ -528,12 +510,12 @@ const Dashboard: React.FC = () => {
 
 
   useEffect(() => {
-    if (isGameOver || !isDelegating || isLoading || apiKey === "MISSING_API_KEY") {
+    if (isGameOver || !isDelegating || isLoading || apiKey === "MOCK_DATA_MODE") {
       if (delegationTimeoutRef.current) {
         clearTimeout(delegationTimeoutRef.current);
         delegationTimeoutRef.current = null;
       }
-      if (apiKey === "MISSING_API_KEY" && isDelegating && !isGameOver) {
+      if (apiKey === "MOCK_DATA_MODE" && isDelegating && !isGameOver) {
         setIsDelegating(false); 
       }
       return;
@@ -565,10 +547,7 @@ const Dashboard: React.FC = () => {
 
   const toggleDelegation = () => {
     if (isGameOver) return;
-    if (apiKey === "MISSING_API_KEY") {
-      updateGameLog("API 키가 없어 위임 모드를 사용할 수 없습니다.");
-      return;
-    }
+    
     const newDelegationState = !isDelegating;
     setIsDelegating(newDelegationState);
     if (newDelegationState) {
@@ -579,17 +558,12 @@ const Dashboard: React.FC = () => {
   };
 
 
-  if (apiKey === "MISSING_API_KEY" && !gameInitialized && !isLoading && !isGameOver) {
+  if (!gameInitialized && !isLoading && !isGameOver) {
     return (
       <div className="bg-parchment p-6 rounded-lg shadow-md text-center">
-        <h2 className="text-2xl font-bold text-seal-DEFAULT mb-3">왕실 기록 보관소 접근 불가</h2>
+        <h2 className="text-2xl font-bold text-seal-DEFAULT mb-3">왕실 기록 보관소에 접근 중...</h2>
         <p className="text-ink-DEFAULT">
-          존경하는 폐하, 왕실 서기관 에델바이스와의 연결을 설정할 수 없는 것 같습니다.
-          이는 <strong className="text-seal-dark">제미니의 비전 열쇠</strong>(API 키) 문제일 가능성이 높습니다.
-        </p>
-        <p className="mt-2 text-ink-light">
-          왕국의 서기관 중계기(환경 변수 <code className="bg-ink-light text-parchment px-1 rounded text-xs">process.env.API_KEY</code>)가 올바르게 설정되었는지 확인해 주십시오.
-          이것 없이는 에델바이스가 중요한 보고서를 전달할 수 없습니다.
+          잠시만 기다려 주십시오, 폐하. 에델바이스가 왕국 상태를 준비하고 있습니다.
         </p>
       </div>
     );
@@ -605,7 +579,7 @@ const Dashboard: React.FC = () => {
         <div className="bg-parchment-dark p-4 rounded-lg shadow-md space-y-3">
           <button
             onClick={handleAdvanceDay}
-            disabled={isLoading || !!activeEvent || isDelegating || apiKey === "MISSING_API_KEY" || isGameOver}
+            disabled={isLoading || !!activeEvent || isDelegating || isGameOver}
             style={{backgroundColor: '#4A3B31'}}
             className="w-full !bg-ink-DEFAULT text-parchment font-display py-3 px-4 rounded-lg shadow-md transition-colors duration-150 ease-in-out hover:bg-ink-light disabled:bg-ink-light disabled:text-parchment/70 disabled:cursor-not-allowed flex items-center justify-center text-lg"
             aria-label={isGameOver ? "게임 오버" : (isDelegating ? "위임 모드 진행 중..." : "다음 날로 진행하고 보고서를 받으며, 현재 상태를 자동 저장합니다.")}
@@ -614,12 +588,12 @@ const Dashboard: React.FC = () => {
             {isDelegating && !isGameOver ? "위임 모드 진행 중..." : "다음 날로 진행 및 보고서 받기"}
           </button>
           
-          <label htmlFor="delegation-toggle" className={`flex items-center justify-between p-3 rounded-md shadow-sm transition-colors ${isDelegating && !isGameOver ? 'bg-seal-DEFAULT hover:bg-seal-dark' : 'bg-parchment hover:bg-parchment/80'} ${isGameOver || apiKey === "MISSING_API_KEY" ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-            title={isGameOver ? "게임 오버" : (apiKey === "MISSING_API_KEY" ? "API 키가 없어 위임 모드를 사용할 수 없습니다." : (isDelegating ? "위임 모드 활성 중" : "위임 모드 비활성"))}
+          <label htmlFor="delegation-toggle" className={`flex items-center justify-between p-3 rounded-md shadow-sm transition-colors ${isDelegating && !isGameOver ? 'bg-seal-DEFAULT hover:bg-seal-dark' : 'bg-parchment hover:bg-parchment/80'} ${isGameOver ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+            title={isGameOver ? "게임 오버" : (isDelegating ? "위임 모드 활성 중" : "위임 모드 비활성")}
           >
             <div className="flex items-center">
               {isDelegating && !isGameOver ? <PlayIcon className="w-5 h-5 mr-2 text-parchment" /> : <PauseIcon className="w-5 h-5 mr-2 text-red-600" />}
-              <span className={`text-sm font-medium ${isDelegating && !isGameOver ? 'text-parchment' : (apiKey !== "MISSING_API_KEY" && !isGameOver ? 'text-red-700' : 'text-gray-500')}`}>
+              <span className={`text-sm font-medium ${isDelegating && !isGameOver ? 'text-parchment' : (isGameOver ? 'text-gray-500' : 'text-red-700')}`}>
                 {isGameOver ? "게임 종료됨" : (isDelegating ? '위임 모드 활성' : '위임 모드 비활성')}
               </span>
             </div>
@@ -630,13 +604,12 @@ const Dashboard: React.FC = () => {
                 className="sr-only" 
                 checked={isDelegating && !isGameOver} 
                 onChange={toggleDelegation} 
-                disabled={isLoading || apiKey === "MISSING_API_KEY" || isGameOver}
+                disabled={isLoading || isGameOver}
               />
-              <div className={`block w-12 h-6 rounded-full transition-colors ${isDelegating && apiKey !== "MISSING_API_KEY" && !isGameOver ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-              <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${isDelegating && apiKey !== "MISSING_API_KEY" && !isGameOver ? 'transform translate-x-6' : ''}`}></div>
+              <div className={`block w-12 h-6 rounded-full transition-colors ${isDelegating && !isGameOver ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+              <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${isDelegating && !isGameOver ? 'transform translate-x-6' : ''}`}></div>
             </div>
           </label>
-           {apiKey === "MISSING_API_KEY" && !isGameOver && <p className="text-xs text-red-600 text-center">API 키가 없어 위임 모드를 사용할 수 없습니다.</p>}
         </div>
         <StatsDisplay stats={kingdomStats} />
         <GoalSetter currentGoal={edelweissGoal} onSetGoal={setEdelweissGoal} isDisabled={isGameOver} />
