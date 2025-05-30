@@ -510,13 +510,10 @@ const Dashboard: React.FC = () => {
 
 
   useEffect(() => {
-    if (isGameOver || !isDelegating || isLoading || apiKey === "MOCK_DATA_MODE") {
+    if (isGameOver || !isDelegating || isLoading) {
       if (delegationTimeoutRef.current) {
         clearTimeout(delegationTimeoutRef.current);
         delegationTimeoutRef.current = null;
-      }
-      if (apiKey === "MOCK_DATA_MODE" && isDelegating && !isGameOver) {
-        setIsDelegating(false); 
       }
       return;
     }
@@ -542,7 +539,7 @@ const Dashboard: React.FC = () => {
         delegationTimeoutRef.current = null; 
       }
     };
-  }, [isDelegating, isLoading, activeEvent, apiKey, handleAdvanceDay, handleAutoResolveEvent, isGameOver]);
+  }, [isDelegating, isLoading, activeEvent, handleAdvanceDay, handleAutoResolveEvent, isGameOver]);
 
 
   const toggleDelegation = () => {
