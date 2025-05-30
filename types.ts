@@ -1,4 +1,3 @@
-
 export enum EdelweissGoal {
   CITIZEN_SATISFACTION = "백성 만족도 최우선",
   MILITARY_STRENGTH = "군사력 증강 집중",
@@ -88,6 +87,7 @@ export type AlertTypeStrings =
   | "SPY_CAUGHT"
   | "FINANCE" // From dynamic alerts in geminiService
   | "SOCIAL"  // From dynamic alerts in geminiService
+  | "DIPLOMATIC_OPPORTUNITY" // 새로 추가된 외교적 기회 이벤트
   | "ACKNOWLEDGE_ONLY_EVENT_TYPE_EXAMPLE"; // From mock event outcome
 
 export interface UrgentAlert {

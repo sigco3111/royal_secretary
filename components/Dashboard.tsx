@@ -13,7 +13,7 @@ import { generateInitialReport, generatePeriodicReport, resolveEventChoice } fro
 import { ScrollIcon } from './icons/ScrollIcon';
 import { QuillIcon } from './icons/QuillIcon';
 import { GameLogView } from './GameLogView';
-import { PlayIcon } from './icons/PlayIcon'; 
+import { PlayIcon } from './icons/PlayIcon';
 import { PauseIcon } from './icons/PauseIcon';
 import CombinedStatChart from './CombinedStatChart';
 
@@ -25,60 +25,137 @@ const selectBestChoiceForGoal = (choices: PlayerChoice[] | undefined, goal: Edel
     return { id: 'acknowledge_auto', text: '자동 확인' };
   }
 
-  let preferredChoice: PlayerChoice | null = null;
+  // 선택 전략 개선: 현재 왕국 상황을 고려한 선택
+  const currentStats = window.localStorage.getItem('kingdomStats');
+  let stats: KingdomStats | null = null;
+  
+  try {
+    if (currentStats) {
+      stats = JSON.parse(currentStats) as KingdomStats;
+    }
+  } catch (error) {
+    console.error("상태 파싱 오류:", error);
+  }
 
-  const keywords: Record<EdelweissGoal, string[]> = {
-    [EdelweissGoal.CITIZEN_SATISFACTION]: ['행복도', '만족도', '민심'],
-    [EdelweissGoal.MILITARY_STRENGTH]: ['군사력', '병력', '군대', '방어'],
-    [EdelweissGoal.FINANCIAL_STABILITY]: ['금', '재정', '수입', '골드', '비용 절감', '예산'],
-    [EdelweissGoal.BALANCED_GROWTH]: [],
-  };
-
-  const positiveKeywords = ['상승', '증가', '획득', '개선', '안정', '성공', '강화', '이득'];
-  const negativeKeywords = ['하락', '감소', '손실', '악화', '위험', '비용', '소모', '지출', '부담', '실패', '처벌'];
-
-  const goalKeywords = keywords[goal];
-
-  if (goalKeywords.length > 0) {
-    for (const choice of choices) {
-      const searchText = `${choice.text} ${choice.tooltip || ''}`.toLowerCase();
-      if (goalKeywords.some(kw => searchText.includes(kw))) {
-        if (positiveKeywords.some(pk => searchText.includes(pk)) && !negativeKeywords.some(nk => searchText.includes(nk))) {
-          preferredChoice = choice; 
-          break;
-        }
-        if (!preferredChoice) preferredChoice = choice;
-      }
+  // 긴급 상황 처리 플래그
+  let isEmergency = false;
+  let emergencyType = '';
+  
+  // 왕국 상태가 위급한지 확인
+  if (stats) {
+    if (stats.food < stats.population * 0.2) {
+      isEmergency = true;
+      emergencyType = '식량';
+    } else if (stats.gold < 50) {
+      isEmergency = true;
+      emergencyType = '금';
+    } else if (stats.militaryStrength < 10) {
+      isEmergency = true;
+      emergencyType = '군사력';
+    } else if (stats.citizenHappiness < 25) {
+      isEmergency = true;
+      emergencyType = '행복도';
+    } else if (stats.publicOrder < 25) {
+      isEmergency = true;
+      emergencyType = '공공질서';
     }
   }
 
-  if (preferredChoice) return preferredChoice;
+  // 선택지 키워드 매핑 개선
+  const keywords: Record<EdelweissGoal, string[]> = {
+    [EdelweissGoal.CITIZEN_SATISFACTION]: ['행복도', '만족도', '민심', '백성', '인구'],
+    [EdelweissGoal.MILITARY_STRENGTH]: ['군사력', '병력', '군대', '방어', '전투'],
+    [EdelweissGoal.FINANCIAL_STABILITY]: ['금', '재정', '수입', '골드', '비용 절감', '예산', '자금'],
+    [EdelweissGoal.BALANCED_GROWTH]: ['균형', '안정', '평화', '발전'],
+  };
 
-  let bestChoice = choices[0];
-  let bestScore = -Infinity;
+  // 긍정/부정 키워드 확장
+  const positiveKeywords = ['상승', '증가', '획득', '개선', '안정', '성공', '강화', '이득', '회복', '발전', '보상', '구제', '지원'];
+  const negativeKeywords = ['하락', '감소', '손실', '악화', '위험', '비용', '소모', '지출', '부담', '실패', '처벌', '위기', '약탈', '공격'];
+
+  // 모든 선택지의 점수를 계산
+  const choiceScores: { choice: PlayerChoice; score: number }[] = [];
+  
+  // 긴급 상황 관련 키워드
+  const emergencyKeywords: Record<string, string[]> = {
+    '식량': ['식량', '배급', '식료', '농사', '수확', '기근'],
+    '금': ['금', '재정', '수입', '비용', '예산', '자금'],
+    '군사력': ['군사력', '병력', '군대', '방어', '전투', '보호'],
+    '행복도': ['행복도', '만족도', '민심', '백성'],
+    '공공질서': ['질서', '평화', '안정', '법']
+  };
 
   for (const choice of choices) {
     const searchText = `${choice.text} ${choice.tooltip || ''}`.toLowerCase();
     let score = 0;
-    positiveKeywords.forEach(kw => { if (searchText.includes(kw)) score++; });
-    negativeKeywords.forEach(kw => { if (searchText.includes(kw)) score--; });
     
-    if (goal === EdelweissGoal.BALANCED_GROWTH && score === 0 && !negativeKeywords.some(kw => searchText.includes(kw)) ) {
-        if (bestScore < 0 || (bestScore === 0 && (bestChoice.text + (bestChoice.tooltip || "")).length > (choice.text + (choice.tooltip || "")).length) ) {
-             bestScore = score; 
-             bestChoice = choice;
-        } else if (bestScore === -Infinity && score === 0) { 
-            bestScore = score;
-            bestChoice = choice;
+    // 긴급 상황일 때 해당 자원 키워드가 있는 선택지 우선
+    if (isEmergency && emergencyKeywords[emergencyType]) {
+      for (const keyword of emergencyKeywords[emergencyType]) {
+        if (searchText.includes(keyword)) {
+          // 긍정적인 영향이 있는 경우 점수 크게 상승
+          if (positiveKeywords.some(pk => searchText.includes(pk))) {
+            score += 10;
+          }
         }
+      }
     }
-
-    if (score > bestScore) {
-      bestScore = score;
-      bestChoice = choice;
+    
+    // 목표에 따른 키워드 점수 추가
+    const goalKeywords = keywords[goal];
+    if (goalKeywords.length > 0) {
+      for (const kw of goalKeywords) {
+        if (searchText.includes(kw)) {
+          score += 3;
+          // 긍정적 영향이 있으면 추가 점수
+          if (positiveKeywords.some(pk => searchText.includes(pk))) {
+            score += 2;
+          }
+        }
+      }
     }
+    
+    // 일반적인 긍정/부정 키워드 영향
+    positiveKeywords.forEach(kw => { if (searchText.includes(kw)) score += 1; });
+    negativeKeywords.forEach(kw => { if (searchText.includes(kw)) score -= 1; });
+    
+    // 비용 대비 효과 고려
+    if (searchText.includes('금') && /\-\d+/.test(searchText)) {
+      const costMatch = searchText.match(/\-(\d+).*금/);
+      if (costMatch && costMatch[1]) {
+        const cost = parseInt(costMatch[1], 10);
+        if (cost > 100) score -= 2; // 고비용 패널티
+        else if (cost < 50) score += 1; // 저비용 보너스
+      }
+    }
+    
+    // 인구 손실 회피
+    if (searchText.includes('인구') && searchText.includes('감소')) {
+      score -= 3;
+    }
+    
+    // 균형 성장 목표일 때는 과도한 변화 회피
+    if (goal === EdelweissGoal.BALANCED_GROWTH) {
+      if (searchText.includes('대규모') || searchText.includes('막대한')) {
+        score -= 1;
+      }
+    }
+    
+    choiceScores.push({ choice, score });
   }
-  return bestChoice || choices[0];
+  
+  // 점수로 정렬하고 최고 점수 선택
+  choiceScores.sort((a, b) => b.score - a.score);
+  
+  // 최고 점수 선택지가 여러개면 랜덤 선택 (다양성 추가)
+  const highestScore = choiceScores[0].score;
+  const topChoices = choiceScores.filter(item => item.score === highestScore);
+  
+  if (topChoices.length > 1) {
+    return topChoices[Math.floor(Math.random() * topChoices.length)].choice;
+  }
+  
+  return choiceScores[0].choice;
 };
 
 
@@ -319,11 +396,13 @@ const Dashboard: React.FC = () => {
 
     if (population <= 0) {
       reason = "왕국의 모든 백성이 사라졌습니다...";
-    } else if (food <= 0) {
+    } else if (food <= 0 && kingdomStats.citizenHappiness <= 10) {
+      // 식량이 바닥나도 행복도가 아직 10 이상이면 즉시 게임 오버가 되지 않도록 조건 변경
       reason = "식량이 완전히 고갈되어 왕국이 굶주림에 휩싸였습니다...";
-    } else if (militaryStrength <= 0) {
+    } else if (militaryStrength <= 0 && kingdomStats.publicOrder <= 25) {
+      // 군사력이 0이 되어도 공공질서가 25 이상이면 게임 오버가 되지 않도록 조건 변경
       reason = "군사력이 소멸하여 왕국을 지킬 힘이 없습니다...";
-    } else if (gold <= 0 && kingdomStats.currentDay > 1) { // Gold 0 only game over after day 1
+    } else if (gold <= -200 && kingdomStats.currentDay > 3) { // Gold -100 -> -200으로 더 완화, 초반 3일 간은 예외
       reason = "왕실 금고가 바닥나 국가 운영이 불가능해졌습니다...";
     }
 
@@ -353,8 +432,18 @@ const Dashboard: React.FC = () => {
     updateGameLog(`${kingdomStats.currentDay} 일차 진행 중... 에델바이스가 보고서를 준비합니다.`);
     const nextDay = kingdomStats.currentDay + 1;
     
-    const foodConsumed = Math.floor(kingdomStats.population * 0.1); 
-    let updatedStatsBase = { ...kingdomStats, currentDay: nextDay, food: Math.max(0, kingdomStats.food - foodConsumed) };
+    // 식량 소비량을 8%에서 5%로 감소
+    const foodConsumed = Math.floor(kingdomStats.population * 0.05); 
+    
+    // 기본 세금 수입 추가 (인구에 비례)
+    const taxIncome = Math.floor(kingdomStats.population * 0.02) + 30; // 인구 1000명 기준 약 50골드의 기본 수입
+    
+    let updatedStatsBase = { 
+      ...kingdomStats, 
+      currentDay: nextDay, 
+      food: Math.max(0, kingdomStats.food - foodConsumed),
+      gold: kingdomStats.gold + taxIncome // 기본 세금 수입 추가
+    };
     
     let dayLogEntries: string[] = [];
 
@@ -362,7 +451,7 @@ const Dashboard: React.FC = () => {
       updatedStatsBase.citizenHappiness = Math.max(0, updatedStatsBase.citizenHappiness - 10);
       dayLogEntries.push(`${nextDay} 일차: 식량이 바닥났습니다! 백성들이 굶주리고 있습니다. 행복도가 감소했습니다.`);
     } else {
-       dayLogEntries.push(`${nextDay} 일차: 엘도리아에 새로운 날이 밝았습니다. 식량 소비: ${foodConsumed}.`);
+       dayLogEntries.push(`${nextDay} 일차: 엘도리아에 새로운 날이 밝았습니다. 식량 소비: ${foodConsumed}. 세금 수입: ${taxIncome} 골드.`);
     }
     
     setKingdomStats(prev => {
