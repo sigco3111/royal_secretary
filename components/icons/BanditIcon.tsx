@@ -1,0 +1,13 @@
+
+import React from 'react';
+
+interface BanditIconProps extends React.SVGProps<SVGSVGElement> {
+  title?: string;
+}
+
+export const BanditIcon = ({ title, ...props }: BanditIconProps) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" {...props}>
+    {title && <title>{title}</title>}
+    <path d="M12 2C11.1716 2 10.5 2.67157 10.5 3.5V4.5H6.75C5.7835 4.5 5 5.2835 5 6.25V10.75C5 11.7165 5.7835 12.5 6.75 12.5H7.61189C7.29013 13.3505 7.41527 14.3285 8.02607 15.068L3.92233 19.1717C3.33655 19.7575 3.33655 20.7073 3.92233 21.293C4.50812 21.8788 5.45785 21.8788 6.04363 21.293L10.1474 17.1893C10.8868 17.8001 11.8648 17.9252 12.7154 17.6035C12.9602 18.5395 13.8213 19.25 14.8619 19.25H17.25C18.2165 19.25 19 18.4665 19 17.5V13H17.5V10.75C17.5 9.7835 16.7165 9 15.75 9H13.5V3.5C13.5 2.67157 12.8284 2 12 2ZM8.5 6.5H10.5V8.5H8.5V6.5ZM11.5 11.5V14.5H14.5V11.5H11.5Z" />
+  </svg>
+);
